@@ -1,0 +1,346 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calculadora Gamer - Calculadora</title>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg, #101522, #29204b);
+  color: white;
+}
+
+.calculator {
+  width: 100%;
+  max-width: 360px;
+  padding: 22px;
+  background: #151c2c;
+  border: 1px solid #343c50;
+  border-radius: 25px;
+  box-shadow: 0 20px 60px #0007;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+h2 { margin: 0; font-size: 22px; }
+small { color: #aab4ca; }
+
+.display {
+  padding: 20px 12px;
+  margin-bottom: 15px;
+  min-height: 105px;
+  border-radius: 14px;
+  background: #0c1220;
+  text-align: right;
+  overflow: hidden;
+}
+
+#previous {
+  color: #9c8bff;
+  min-height: 20px;
+  font-size: 14px;
+}
+
+#result {
+  margin-top: 10px;
+  font-size: clamp(28px, 9vw, 38px);
+  overflow-wrap: anywhere;
+}
+
+.buttons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 9px;
+}
+
+button {
+  min-width: 0;
+  height: 58px;
+  border: 0;
+  border-radius: 13px;
+  color: white;
+  background: #273247;
+  font-size: 20px;
+  cursor: pointer;
+  transition: transform .1s, filter .1s;
+}
+
+button:active {
+  transform: scale(.94);
+  filter: brightness(1.3);
+}
+
+.operator { background: #7455ed; }
+.action { background: #39445a; }
+.equal { background: #17b99a; color: #071b1b; }
+.sound {
+  height: 38px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+.zero { grid-column: span 2; }
+
+.settings {
+  margin-top: 18px;
+  padding-top: 15px;
+  border-top: 1px solid #343c50;
+}
+
+.settings label {
+  display: block;
+  margin: 12px 0 7px;
+  color: #c6cee0;
+  font-size: 13px;
+}
+
+input[type="file"] {
+  width: 100%;
+  color: #bfc9dc;
+  font-size: 12px;
+}
+
+input[type="range"] { width: 100%; }
+
+.note {
+  margin-top: 12px;
+  color: #96a2ba;
+  font-size: 11px;
+  line-height: 1.5;
+}
+</style>
+</head>
+
+<body>
+<main class="calculator">
+  <div class="header">
+    <div>
+      <h2>Calculadora Gamer</h2>
+      <small>Calculadora digital</small>
+    </div>
+    <button class="sound" id="soundBtn">🔊 Sonido ON</button>
+  </div>
+
+  <div class="display" aria-live="polite">
+    <div id="previous"></div>
+    <div id="result">0</div>
+  </div>
+
+  <div class="buttons">
+    <button class="action" data-key="AC">AC</button>
+    <button class="action" data-key="DEL">⌫</button>
+    <button class="action" data-key="%">%</button>
+    <button class="operator" data-key="/">÷</button>
+
+    <button data-key="7">7</button>
+    <button data-key="8">8</button>
+    <button data-key="9">9</button>
+    <button class="operator" data-key="*">×</button>
+
+    <button data-key="4">4</button>
+    <button data-key="5">5</button>
+    <button data-key="6">6</button>
+    <button class="operator" data-key="-">−</button>
+
+    <button data-key="1">1</button>
+    <button data-key="2">2</button>
+    <button data-key="3">3</button>
+    <button class="operator" data-key="+">+</button>
+
+    <button class="action" data-key="sign">±</button>
+    <button class="zero" data-key="0">0</button>
+    <button data-key=".">.</button>
+    <button class="equal" data-key="=">=</button>
+  </div>
+
+  <section class="settings">
+    <strong>🎵 Sonidos personalizados</strong>
+
+    <label for="clickSound">MP3 para tocar botones</label>
+    <input id="clickSound" type="file" accept="audio/*,.mp3">
+
+    <label for="equalSound">MP3 para el resultado</label>
+    <input id="equalSound" type="file" accept="audio/*,.mp3">
+
+    <label for="volume">Volumen</label>
+    <input id="volume" type="range" min="0" max="1"
+           step="0.05" value="0.4">
+
+    <p class="note">
+      Elegí tus archivos de sonido y tocá los botones.
+      Los archivos se usan localmente en tu navegador.
+    </p>
+  </section>
+</main>
+
+<script>
+const result = document.getElementById("result");
+const previous = document.getElementById("previous");
+const soundBtn = document.getElementById("soundBtn");
+const volume = document.getElementById("volume");
+
+let current = "0";
+let stored = null;
+let operator = null;
+let fresh = false;
+let soundOn = true;
+
+let clickAudio = null;
+let equalAudio = null;
+const audioURLs = [];
+
+function loadAudio(inputId, callback) {
+  document.getElementById(inputId).addEventListener("change", event => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+    audioURLs.push(url);
+    callback(new Audio(url));
+  });
+}
+
+loadAudio("clickSound", audio => clickAudio = audio);
+loadAudio("equalSound", audio => equalAudio = audio);
+
+function playAudio(audio) {
+  if (!soundOn || !audio) return;
+
+  const copy = audio.cloneNode();
+  copy.volume = Number(volume.value);
+  copy.play().catch(() => {});
+}
+
+soundBtn.addEventListener("click", () => {
+  soundOn = !soundOn;
+  soundBtn.textContent = soundOn
+    ? "🔊 Sonido ON"
+    : "🔇 Sonido OFF";
+  if (soundOn) playAudio(clickAudio);
+});
+
+function update() {
+  result.textContent = current;
+}
+
+function calculate(a, b, op) {
+  switch (op) {
+    case "+": return a + b;
+    case "-": return a - b;
+    case "*": return a * b;
+    case "/": return b === 0 ? null : a / b;
+    default: return b;
+  }
+}
+
+function format(n) {
+  if (!Number.isFinite(n)) return "Error";
+  return String(Number(n.toPrecision(12)));
+}
+
+function press(key) {
+  playAudio(key === "=" ? equalAudio : clickAudio);
+
+  if (/^\d$/.test(key)) {
+    if (fresh || current === "Error") current = key;
+    else if (current === "0") current = key;
+    else if (current.length < 16) current += key;
+    fresh = false;
+  } else if (key === ".") {
+    if (fresh || current === "Error") current = "0.";
+    else if (!current.includes(".")) current += ".";
+    fresh = false;
+  } else if (key === "AC") {
+    current = "0";
+    stored = null;
+    operator = null;
+    fresh = false;
+    previous.textContent = "";
+  } else if (key === "DEL") {
+    current = fresh || current === "Error"
+      ? "0" : current.slice(0, -1) || "0";
+    fresh = false;
+  } else if (key === "sign") {
+    if (current !== "0" && current !== "Error")
+      current = format(-Number(current));
+  } else if (key === "%") {
+    if (current !== "Error")
+      current = format(Number(current) / 100);
+    fresh = true;
+  } else if (["+", "-", "*", "/"].includes(key)) {
+    if (current === "Error") return;
+    if (operator && !fresh) {
+      const value = calculate(stored, Number(current), operator);
+      if (value === null) {
+        current = "Error";
+        stored = null;
+        operator = null;
+        update();
+        return;
+      }
+      current = format(value);
+    }
+    stored = Number(current);
+    operator = key;
+    previous.textContent = current + " " +
+      ({"+":"+","-":"−","*":"×","/":"÷"}[key]);
+    fresh = true;
+  } else if (key === "=") {
+    if (operator !== null && stored !== null && current !== "Error") {
+      const a = stored;
+      const b = Number(current);
+      const op = operator;
+      const value = calculate(a, b, op);
+      previous.textContent = a + " " +
+        ({"+":"+","-":"−","*":"×","/":"÷"}[op]) +
+        " " + b + " =";
+      current = value === null ? "Error" : format(value);
+      stored = null;
+      operator = null;
+      fresh = true;
+    }
+  }
+
+  update();
+}
+
+document.querySelectorAll("[data-key]").forEach(button => {
+  button.addEventListener("click", () => press(button.dataset.key));
+});
+
+document.addEventListener("keydown", event => {
+  const key = event.key;
+  if (/^\d$/.test(key) || ["+", "-", "*", "/", ".", "%"].includes(key)) {
+    event.preventDefault();
+    press(key);
+  } else if (key === "Enter" || key === "=") {
+    event.preventDefault();
+    press("=");
+  } else if (key === "Backspace") {
+    press("DEL");
+  } else if (key === "Escape") {
+    press("AC");
+  }
+});
+
+window.addEventListener("beforeunload", () => {
+  audioURLs.forEach(url => URL.revokeObjectURL(url));
+});
+</script>
+</body>
+</html>
